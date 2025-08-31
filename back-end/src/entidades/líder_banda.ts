@@ -10,7 +10,7 @@ export default class LíderBanda extends BaseEntity {
   @Column({ type: "enum", enum: PerfilBanda }) perfil_banda: PerfilBanda;
   @Column() genero_musical: string;
   @Column() cidade: string;
-  @OneToMany(() => Vaga, (vaga) => vaga.líder_banda) vagas: Vaga[];
+  @Column({ type: "int" }) vagas: number;
   @OneToOne(() => Usuário, (usuário) => usuário.líder_banda, { onDelete: "CASCADE" })
   @JoinColumn()
   usuário: Usuário;

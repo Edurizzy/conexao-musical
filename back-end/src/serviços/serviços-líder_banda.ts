@@ -3,24 +3,42 @@ import { getManager } from "typeorm";
 import Usuário, { Status } from "../entidades/usuário";
 import LíderBanda from "../entidades/líder_banda";
 import ServiçosUsuário from "./serviços-usuário";
+
 export default class ServiçosLíderBanda {
     constructor() { }
+
     static async cadastrarLíderBanda(request, response) {
         try {
             const { usuário_info, perfil_banda, genero_musical, cidade, vagas } = request.body;
-            const { usuário, token } = await ServiçosUsuário.cadastrarUsuário(usuário_info);
+
+            const usuarioExistente = await Usuário.findOne({ where: { cpf: usuário_info.cpf } });
+            if (!usuarioExistente) {
+                return response.status(404).json({ erro: "Usuário não encontrado." });
+            }
+
             const entityManager = getManager();
+            
             await entityManager.transaction(async (transactionManager) => {
-                await transactionManager.save(usuário);
-                const líder_banda = LíderBanda.create({ usuário, perfil_banda, genero_musical, cidade, vagas});
+                const líder_banda = LíderBanda.create({
+                    usuário: usuarioExistente,
+                    perfil_banda,
+                    genero_musical,
+                    cidade,
+                    vagas
+                });
                 await transactionManager.save(líder_banda);
-                await transactionManager.update(Usuário, usuário.cpf, { status: Status.ATIVO });
-                return response.json({ status: Status.ATIVO, token });
+
+                await transactionManager.update(Usuário, usuarioExistente.cpf, { status: Status.ATIVO });
             });
+            
+            return response.json({ status: Status.ATIVO });
+
         } catch (error) {
-            return response.status(500).json({ erro: error });
+            console.error("Erro detalhado ao cadastrar líder de banda:", error);
+            return response.status(500).json({ erro: "Ocorreu um erro interno no servidor. Tente novamente." });
         }
     };
+
     static async buscarLíderBanda(request, response) {
         try {
             const cpf_encriptado = md5(request.params.cpf);
@@ -29,6 +47,7 @@ export default class ServiçosLíderBanda {
                 relations: ["usuário"]
             });
             if (!líder_banda) return response.status(404).json({ erro: "LíderBanda não encontrado." });
+            
             return response.json({
                 nome: líder_banda.usuário.nome,
                 email: líder_banda.usuário.email,
@@ -37,6 +56,8 @@ export default class ServiçosLíderBanda {
                 cidade: líder_banda.cidade,
                 vagas: líder_banda.vagas
             });
-        } catch (error) { return response.status(500).json({ erro: "Erro BD : buscarLíderBanda" }); }
+        } catch (error) { 
+            return response.status(500).json({ erro: "Erro no banco de dados ao buscar LíderBanda." }); 
+        }
     };
 };
